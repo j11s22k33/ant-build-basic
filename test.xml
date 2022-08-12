@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="test_deploy" default="test" basedir=".">
+    <tstamp>
+        <format property="currtime" pattern="yyyy.MM.dd.HH.mm.ss" locale="ko,KR"/>
+    </tstamp>
+
+    <target name="test" description="">
+        <echo message="This is warning message."/>
+        <echo message="${currtime}"/>
+
+        <!--<exec dir="." executable="cmd.exe">
+            <arg line="/c start explorer"/>
+        </exec>-->
+    </target>
+</project>
