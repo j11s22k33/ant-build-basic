@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="svn_deploy" default="3.ssh.app.start" basedir=".">
+    <tstamp>
+        <format property="currtime" pattern="yyyy.MM.dd.HH.mm.ss" locale="ko,KR"/>
+    </tstamp>
+    <property name="app.name" value="tv-cms-adm"/>
+    <property name="local.dir.build" value="build"/>
+    <property name="local.dir.zip" value="zip"/>
+    <property name="local.dir.svn" value="${local.dir.zip}"/>
+    <property name="remote.host" value="172.28.0.1"/>
+    <property name="remote.username" value="ubuntu"/>
+    <property name="remote.password" value=""/>
+    <property name="remote.passphrase" value=""/>
+    <property name="remote.keyfile" value="${user.home}/.ssh/TvAppCmsDevelopment.pem"/>
+
+    <!--<echoproperties>
+        <propertyset>
+            <propertyref prefix="app."/>
+            <propertyref prefix="local."/>
+            <propertyref prefix="remote."/>
+        </propertyset>
+    </echoproperties>-->
+
+    <!--
+    HostKeyAlgorithms=rsa-sha2-512,rsa-sha2-256,ecdsa-sha2-nistp256,ssh-ed25519
+
+    OpenSSH ssh-rsa 중단되었다. http://www.jcraft.com/jsch 에서 제공하는 jsch-0.1.55.jar는 rsa-sha2-512 알고리즘 지원안된다
+
+    fork 버전은 잘된다
+    https://github.com/mwiede/jsch
+    https://mvnrepository.com/artifact/com.github.mwiede/jsch
+    -->
+
+    <target name="1.create.zip" description="zip 파일 생성">
+        <antcall target="create.zip"/>
+    </target>
+
+    <target name="2.ssh.send.zip" description="zip 파일 전송 및 압축해제">
+        <antcall target="ssh.send.zip">
+            <param name="remote.host" value="ec2-3-39-142-198.ap-northeast-2.compute.amazonaws.com"/>
+        </antcall>
+<!--        <antcall target="ssh.send.zip">
+            <param name="remote.host" value="172.28.176.1"/>
+        </antcall>-->
+    </target>
+
+    <target name="3.ssh.app.start" description="nvm설치, npm설치, npm start">
+        <antcall target="ssh.app.start">
+            <param name="remote.host" value="ec2-3-39-142-198.ap-northeast-2.compute.amazonaws.com"/>
+        </antcall>
+<!--        <antcall target="ssh.app.start">
+            <param name="remote.host" value="172.28.176.1"/>
+        </antcall>-->
+    </target>
+
+    <target name="build.vue.app">
+        <exec dir="../client" executable="cmd.exe">
+            <arg line="/c npm run build"/>
+        </exec>
+    </target>
+
+    <target name="create.zip" depends="build.vue.app">
+        <mkdir dir="${local.dir.build}"/>
+        <delete includeemptydirs="true">
+            <fileset dir="${local.dir.build}" includes="**/*" defaultexcludes="false"/>
+        </delete>
+        <copy todir="${local.dir.build}" overwrite="true">
+            <fileset dir="../server" defaultexcludes="false">
+                <include name="**/*"/>
+                <exclude name="routes/test.js"/>
+                <exclude name="node_modules/"/>
+                <exclude name="dist/"/>
+                <exclude name="logs/"/>
+                <exclude name="uploads/"/>
+                <exclude name="yarn.lock"/>
+                <exclude name="package-lock.json"/>
+            </fileset>
+            <fileset dir="../client" defaultexcludes="false">
+                <include name="dist/"/>
+            </fileset>
+        </copy>
+        <zip zipfile="${local.dir.zip}/${app.name}.zip">
+            <fileset dir="${local.dir.build}" defaultexcludes="false">
+                <include name="**/*.*"/>
+                <exclude name="**/*.war"/>
+                <exclude name="**/*.zip"/>
+            </fileset>
+        </zip>
+    </target>
+
+    <target name="ssh.send.zip" depends="create.zip">
+        <scp file="${local.dir.zip}/${app.name}.zip"
+             todir="${remote.username}@${remote.host}:~/"
+             password="${remote.password}" keyfile="${remote.keyfile}" passphrase="${remote.passphrase}" trust="true"
+             verbose="true"/>
+        <sshexec host="${remote.host}" username="${remote.username}"
+                 password="${remote.password}" keyfile="${remote.keyfile}" passphrase="${remote.passphrase}"
+                 trust="true" verbose="true"
+                 command="unzip -o ~/${app.name}.zip -d ~/${app.name}"/>
+    </target>
+
+    <target name="ssh.app.start" depends="ssh.send.zip">
+        <antcall target="nvm.install"/>
+        <antcall target="npm.install"/>
+        <antcall target="pm2.start"/>
+    </target>
+
+    <target name="nvm.install">
+        <sshexec host="${remote.host}" username="${remote.username}"
+                 password="${remote.password}" keyfile="${remote.keyfile}" passphrase="${remote.passphrase}"
+                 trust="true" verbose="true"
+                 command="curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash&amp;&amp; . ~/.nvm/nvm.sh&amp;&amp; nvm install --lts"/>
+    </target>
+
+    <target name="npm.install">
+        <sshexec host="${remote.host}" username="${remote.username}"
+                 password="${remote.password}" keyfile="${remote.keyfile}" passphrase="${remote.passphrase}"
+                 trust="true" verbose="true"
+                 command="cd ~/${app.name}&amp;&amp; . ~/.nvm/nvm.sh&amp;&amp; npm install&amp;&amp; npm i -g pm2 nodemon"/>
+    </target>
+
+    <target name="pm2.start">
+        <sshexec host="${remote.host}" username="${remote.username}"
+                 password="${remote.password}" keyfile="${remote.keyfile}" passphrase="${remote.passphrase}"
+                 trust="true" verbose="true"
+                 command="cd ~/${app.name}&amp;&amp;  . ~/.nvm/nvm.sh&amp;&amp; npm run pm2_start_prod"/>
+    </target>
+
+    <target name="remove.host.in.known_hosts">
+        <exec dir="${basedir}" command="ssh-keygen -R '~/.ssh/known_hosts 에서 제거할호스트'"/>
+    </target>
+</project>
