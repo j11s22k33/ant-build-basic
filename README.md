@@ -2,6 +2,14 @@
 
 - https://github.com/apache/ant/blob/master/build.xml
 - https://ant.apache.org/manual/index.html
+
+```
+ant 외부 라이브러리 포함 실행
+ant -lib {jar} {target}
+ant -lib ant-lib/jsch-0.2.2.jar 2.ssh.send.zip
+ant -lib ant-lib/jsch-0.2.2.jar 3.ssh.app.start
+```
+
 ```
 OpenSSH ssh-rsa 중단되었다
 최신 리눅스에서는 이전 키알고리즘으로 접속 안된다
